@@ -1,7 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/analyze", "destination": "/api/analyze" },
-    { "source": "/api/config",  "destination": "/api/config"  },
-    { "source": "/(.*)",        "destination": "/public/index.html" }
-  ]
-}
