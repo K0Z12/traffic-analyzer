@@ -69,7 +69,7 @@
   <div id="err" class="hidden glass rounded-xl p-6 text-center">
     <p class="text-3xl mb-2">⚠️</p>
     <p id="errMsg" class="text-red-400 text-sm mb-2"></p>
-    <p class="text-gray-700 text-xs">Make sure the server is running: <code class="bg-white/5 px-2 py-0.5 rounded">python3 server.py</code></p>
+    <p class="text-gray-700 text-xs">Try refreshing the page or searching again.</p>
   </div>
 
   <!-- Results -->
@@ -133,7 +133,7 @@
 
 </div>
 <script>
-const API = "http://localhost:8787/api/analyze";
+const API = "/api/analyze";
 const FLAGS = {IN:"🇮🇳",US:"🇺🇸",GB:"🇬🇧",AE:"🇦🇪",SA:"🇸🇦",SG:"🇸🇬",CA:"🇨🇦",AU:"🇦🇺",DE:"🇩🇪",FR:"🇫🇷",JP:"🇯🇵",KR:"🇰🇷"};
 let G = null, G_IDX = 2;
 

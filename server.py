@@ -17,7 +17,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from collections import defaultdict
 
-PORT       = 8787
+PORT       = int(os.environ.get("PORT", 8787))
 MEM_CACHE  = {}
 TTL        = 86400
 DISK_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache.json")
