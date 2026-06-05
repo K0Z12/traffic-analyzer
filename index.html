@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Traffic Analyzer</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{background:#07070f;font-family:'Inter',system-ui,sans-serif;}
+  .glass{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);}
+  .spinner{border:2.5px solid rgba(255,255,255,.08);border-top-color:#818cf8;border-radius:50%;width:26px;height:26px;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .fade{animation:fi .3s ease-out}
+  @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+  .tab{cursor:pointer;padding:7px 18px;border-radius:9px;font-size:13px;font-weight:600;color:rgba(255,255,255,.32);transition:all .15s;border:1px solid transparent;}
+  .tab:hover{color:rgba(255,255,255,.65);background:rgba(255,255,255,.05);}
+  .tab.on{color:#fff;background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.4);}
+  .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);}
+  .bf{height:100%;border-radius:2px;transition:width .6s ease-out;}
+  input::placeholder{color:rgba(255,255,255,.18);}
+</style>
+</head>
+<body class="min-h-screen text-white">
+<div class="max-w-2xl mx-auto px-4 py-10">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold mb-1.5 bg-gradient-to-br from-white via-indigo-100 to-indigo-400 bg-clip-text text-transparent">
+      Traffic Analyzer
+    </h1>
+    <p class="text-gray-600 text-sm">Monthly traffic · Engagement · 3-month trend</p>
+  </div>
+
+  <!-- Search -->
+  <div class="glass rounded-2xl p-4 mb-5">
+    <div class="flex gap-2">
+      <input id="inp" type="text" placeholder="e.g. bewakoof.com, nykaa.com, levis.in"
+        class="flex-1 bg-transparent border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+        onkeydown="if(event.key==='Enter')go()"/>
+      <button onclick="go()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all">
+        Analyze
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="flex flex-wrap gap-1.5 justify-center mb-7">
+    <button onclick="q('snitch.co.in')"        class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">snitch.co.in</button>
+    <button onclick="q('thesouledstore.com')"  class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">thesouledstore.com</button>
+    <button onclick="q('rare-rabbit.com')"     class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">rare-rabbit.com</button>
+    <button onclick="q('nykaa.com')"           class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">nykaa.com</button>
+    <button onclick="q('mamaearth.in')"        class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">mamaearth.in</button>
+    <button onclick="q('bewakoof.com')"        class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">bewakoof.com</button>
+    <button onclick="q('boat-lifestyle.com')"  class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">boat-lifestyle.com</button>
+    <button onclick="q('giva.com')"            class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">giva.com</button>
+    <button onclick="q('purplle.com')"         class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">purplle.com</button>
+    <button onclick="q('virgio.com')"          class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">virgio.com</button>
+    <button onclick="q('myntra.com')"          class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">myntra.com</button>
+    <button onclick="q('levis.in')"            class="text-xs glass px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-500 transition-colors">levis.in</button>
+  </div>
+
+  <!-- Loading -->
+  <div id="load" class="hidden text-center py-14">
+    <div class="spinner mx-auto mb-3"></div>
+    <p id="loadMsg" class="text-xs text-gray-600">Fetching traffic data…</p>
+  </div>
+
+  <!-- Error -->
+  <div id="err" class="hidden glass rounded-xl p-6 text-center">
+    <p class="text-3xl mb-2">⚠️</p>
+    <p id="errMsg" class="text-red-400 text-sm mb-2"></p>
+    <p class="text-gray-700 text-xs">Make sure the server is running: <code class="bg-white/5 px-2 py-0.5 rounded">python3 server.py</code></p>
+  </div>
+
+  <!-- Results -->
+  <div id="res" class="hidden fade space-y-4">
+
+    <!-- Brand header -->
+    <div class="glass rounded-2xl p-5">
+      <div class="flex items-center gap-3 mb-3">
+        <img id="fav" src="" class="w-10 h-10 rounded-xl bg-white/5 p-1 object-contain" onerror="this.style.display='none'"/>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="bName" class="font-bold text-base"></span>
+            <span id="bNiche" class="text-xs px-2 py-0.5 rounded-full bg-purple-950/60 text-purple-300 border border-purple-800/30 capitalize font-semibold"></span>
+          </div>
+          <p id="bDomain" class="text-gray-600 text-xs mt-0.5"></p>
+        </div>
+      </div>
+      <!-- Tier / confidence banner -->
+      <div id="tierBanner" class="rounded-xl px-4 py-2.5 text-xs font-semibold"></div>
+      <p id="nodataNote" class="hidden text-xs text-gray-500 mt-2 px-1"></p>
+    </div>
+
+    <!-- 3-month traffic -->
+    <div class="glass rounded-2xl overflow-hidden">
+      <div class="flex items-center gap-2 px-4 pt-4 pb-3 border-b border-white/5">
+        <span class="text-xs text-gray-600 mr-1">Month:</span>
+        <div id="tabs" class="flex gap-1.5"></div>
+      </div>
+      <div id="moBody" class="p-5 space-y-5"></div>
+    </div>
+
+    <!-- Engagement + Markets -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Engagement</p>
+        <div id="eng" class="space-y-2.5"></div>
+      </div>
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Top Markets</p>
+        <div id="ctr" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <!-- Shopify products (if available) -->
+    <div id="shopifyCard" class="hidden glass rounded-2xl p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Shopify Store</p>
+      <div id="shopifyInfo" class="space-y-2"></div>
+    </div>
+
+    <!-- Traffic Sources -->
+    <div id="srcCard" class="hidden glass rounded-2xl p-4">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Traffic Sources</p>
+      <div id="srcInfo" class="space-y-2"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-gray-700 text-center pb-1">
+      Traffic = organic search + paid ads + direct + referral
+    </div>
+  </div>
+
+</div>
+<script>
+const API = "http://localhost:8787/api/analyze";
+const FLAGS = {IN:"🇮🇳",US:"🇺🇸",GB:"🇬🇧",AE:"🇦🇪",SA:"🇸🇦",SG:"🇸🇬",CA:"🇨🇦",AU:"🇦🇺",DE:"🇩🇪",FR:"🇫🇷",JP:"🇯🇵",KR:"🇰🇷"};
+let G = null, G_IDX = 2;
+
+function fv(n){
+  if(!n && n!==0) return "—";
+  if(n>=1e9) return `${(n/1e9).toFixed(2)}B`;
+  if(n>=1e6) return `${(n/1e6).toFixed(1)}M`;
+  if(n>=1e3) return `${(n/1e3).toFixed(0)}K`;
+  return String(Math.round(n));
+}
+function norm(d){
+  let s=d.trim().toLowerCase();
+  if(!s.startsWith("http")) s="https://"+s;
+  try{return new URL(s).hostname.replace(/^www\./,"");}catch{return d.trim().toLowerCase();}
+}
+function q(d){document.getElementById("inp").value=d;go();}
+function show(id){document.getElementById(id).classList.remove("hidden");}
+function hide(id){document.getElementById(id).classList.add("hidden");}
+
+function renderMonth(idx){
+  G_IDX = idx;
+  const d = G;
+  const months = d.monthsData || [];
+  if(!months.length){
+    document.getElementById("moBody").innerHTML = `<p class="text-gray-600 text-sm text-center py-8">No month data available.</p>`;
+    return;
+  }
+  const mo = months[idx];
+  const prev = idx>0 ? months[idx-1] : null;
+
+  document.querySelectorAll(".tab").forEach((t,i)=>t.classList.toggle("on",i===idx));
+
+  let chgHtml = "";
+  if(prev && prev.visits && mo.visits){
+    const pct = ((mo.visits/prev.visits-1)*100).toFixed(1);
+    const up  = pct >= 0;
+    chgHtml = `<span class="${up?'text-green-400':'text-red-400'} text-xs font-semibold">${up?'▲':'▼'} ${Math.abs(pct)}% vs ${months[idx-1].label}</span>`;
+  }
+
+  const maxV = Math.max(...months.map(m=>m.visits||0));
+
+  document.getElementById("moBody").innerHTML = `
+    <!-- Big visit number -->
+    <div class="bg-white/[.025] border border-white/[.06] rounded-xl p-5 text-center">
+      <p class="text-gray-500 text-xs uppercase tracking-wider mb-2">Monthly Visits</p>
+      <p class="text-4xl font-bold">${fv(mo.visits)}</p>
+      <div class="mt-2">${chgHtml}</div>
+    </div>
+
+    <!-- 3-month comparison bars -->
+    <div>
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">3-Month Comparison</p>
+      <div class="space-y-3">
+        ${months.map((m,i)=>{
+          const active = i===idx;
+          return `
+            <div class="${active?'':'opacity-40'} cursor-pointer" onclick="renderMonth(${i})">
+              <div class="flex justify-between text-xs mb-1">
+                <span class="${active?'text-white font-semibold':'text-gray-500'}">${m.label}</span>
+                <span class="${active?'text-indigo-300':'text-gray-600'} font-semibold">${fv(m.visits)}</span>
+              </div>
+              <div class="bar"><div class="bf ${active?'bg-indigo-500':'bg-gray-700'}" style="width:${maxV?Math.round((m.visits||0)/maxV*100):0}%"></div></div>
+            </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+
+function render(d){
+  G = d;
+  hide("load"); hide("err"); show("res");
+
+  const domain = d.domain;
+  document.getElementById("fav").src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  document.getElementById("bName").textContent = domain.split(".")[0].replace(/^./,c=>c.toUpperCase());
+  document.getElementById("bDomain").textContent = domain;
+  document.getElementById("bNiche").textContent = (d.niche||"").replace(/_/g," ");
+
+  // Tier banner
+  const tb = document.getElementById("tierBanner");
+  const tierClass = {
+    verified: "bg-green-950/60 text-green-300 border border-green-800/30",
+    live:     "bg-blue-950/60 text-blue-300 border border-blue-800/30",
+    nodata:   "bg-red-950/50 text-red-400 border border-red-800/30",
+  }[d.tier] || "bg-gray-800/60 text-gray-400 border border-gray-700/30";
+  tb.className = `rounded-xl px-4 py-2.5 text-xs font-semibold ${tierClass}`;
+  tb.textContent = d.tierLabel || d.tier;
+
+  // Show note for nodata tier
+  const noteEl = document.getElementById("nodataNote");
+  if(d.tier === "nodata" && d.revenueNote){
+    noteEl.textContent = d.revenueNote;
+    noteEl.classList.remove("hidden");
+  } else {
+    noteEl.classList.add("hidden");
+  }
+
+  // Month tabs
+  const months = d.monthsData || [];
+  document.getElementById("tabs").innerHTML = months.map((m,i)=>`
+    <button class="tab ${i===months.length-1?'on':''}" onclick="renderMonth(${i})">${m.label}</button>
+  `).join("");
+  if(months.length) renderMonth(months.length-1);
+  else document.getElementById("moBody").innerHTML = `<p class="text-gray-600 text-sm py-6 text-center">No historical data available.</p>`;
+
+  // Engagement
+  const rank = d.globalRank;
+  document.getElementById("eng").innerHTML = [
+    ["Avg Session",   d.avgVisitDuration||"—"],
+    ["Bounce Rate",   d.bounceRate ? `${d.bounceRate}%` : "—"],
+    ["Pages/Visit",   d.pagesPerVisit||"—"],
+    ["Global Rank",   rank ? `#${Number(rank).toLocaleString()}` : "—"],
+  ].map(([k,v])=>`
+    <div class="flex justify-between">
+      <span class="text-xs text-gray-500">${k}</span>
+      <span class="text-xs font-semibold text-white">${v}</span>
+    </div>`).join("");
+
+  // Countries
+  const ctrs = d.topCountries||[];
+  const maxP = ctrs.length ? Math.max(...ctrs.map(([,p])=>p)) : 1;
+  document.getElementById("ctr").innerHTML = ctrs.map(([code,pct])=>`
+    <div class="flex items-center gap-2">
+      <span class="text-sm w-5">${FLAGS[code]||"🌍"}</span>
+      <div class="flex-1">
+        <div class="flex justify-between text-xs mb-0.5">
+          <span class="text-gray-500">${code}</span>
+          <span class="text-gray-600">${pct}%</span>
+        </div>
+        <div class="bar"><div class="bf bg-indigo-500" style="width:${Math.round(pct/maxP*100)}%"></div></div>
+      </div>
+    </div>`).join("");
+
+  // Shopify products
+  const sp = d.shopifyProducts;
+  if(sp && (sp.count || sp.total_skus)){
+    show("shopifyCard");
+    document.getElementById("shopifyInfo").innerHTML = [
+      ["Products", sp.count ? `${sp.count}${sp.has_more?" (250+ total)":""}` : "—"],
+      ["Total SKUs", sp.total_skus ? sp.total_skus.toLocaleString() : "—"],
+      ["Avg product price", sp.avg_price_inr ? `₹${sp.avg_price_inr.toLocaleString()}` : "—"],
+    ].map(([k,v])=>`
+      <div class="flex justify-between">
+        <span class="text-xs text-gray-500">${k}</span>
+        <span class="text-xs font-semibold text-white">${v}</span>
+      </div>`).join("");
+  } else { hide("shopifyCard"); }
+
+  // Traffic sources
+  const srcs = d.trafficSources;
+  if(srcs && Object.keys(srcs).length){
+    show("srcCard");
+    const srcLabels = {
+      SearchOrganic:"Organic Search", SearchPaid:"Paid Search / Google Ads",
+      Direct:"Direct", SocialOrganic:"Organic Social", SocialPaid:"Paid Social / Meta",
+      Referrals:"Referral", Mail:"Email", DisplayAds:"Display Ads",
+      GenAi:"AI Referral", Affiliate:"Affiliate",
+    };
+    const sorted = Object.entries(srcs)
+      .map(([k,v])=>[srcLabels[k]||k, Math.round(v*1000)/10])
+      .filter(([,v])=>v>=0.5)
+      .sort((a,b)=>b[1]-a[1]);
+    document.getElementById("srcInfo").innerHTML = sorted.map(([label,pct])=>`
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-gray-400 w-44 truncate">${label}</span>
+        <div class="flex-1 bar"><div class="bf bg-indigo-500/70" style="width:${Math.round(pct)}%"></div></div>
+        <span class="text-xs font-semibold text-gray-300 w-10 text-right">${pct}%</span>
+      </div>`).join("");
+  } else { hide("srcCard"); }
+}
+
+async function go(){
+  const raw = document.getElementById("inp").value.trim();
+  if(!raw){document.getElementById("inp").focus();return;}
+  const domain = norm(raw);
+  hide("res"); hide("err"); show("load");
+  document.getElementById("loadMsg").textContent = `Analyzing ${domain}…`;
+  try{
+    const r = await fetch(`${API}?domain=${encodeURIComponent(domain)}`);
+    const j = await r.json();
+    if(!r.ok||j.error){
+      hide("load"); show("err");
+      document.getElementById("errMsg").textContent = j.error||`Server error ${r.status}`;
+      return;
+    }
+    render(j);
+  }catch(e){
+    hide("load"); show("err");
+    document.getElementById("errMsg").textContent =
+      e.message.includes("fetch")||e.message.includes("Failed")
+        ? "Cannot reach server — run: python3 server.py" : e.message;
+  }
+}
+</script>
+</body>
+</html>

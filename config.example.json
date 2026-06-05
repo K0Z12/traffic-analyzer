@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy this file to config.json and paste your Cloudflare Worker URL",
+  "cf_worker": ""
+}
