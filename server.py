@@ -234,6 +234,107 @@ _SW_HEADERS = {
     "sec-ch-ua-platform": '"macOS"',
 }
 
+# ── Proxy rotator ─────────────────────────────────────────────────────────────
+# Fetches free SOCKS5 proxy list, tests them, rotates every ROTATE_EVERY requests.
+# Completely bypasses IP-based rate limiting.
+import threading, queue, socket as _socket
+
+ROTATE_EVERY   = 6        # rotate proxy after this many SW requests
+_proxy_pool    = queue.Queue()
+_proxy_lock    = threading.Lock()
+_sw_req_count  = 0
+_current_proxy = None
+_pool_ready    = threading.Event()
+
+PROXY_SOURCES = [
+    "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=4000&country=all&anonymity=elite",
+    "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=4000&country=all",
+]
+
+def _test_proxy(proxy_str, timeout=4):
+    """Quick TCP reachability test for a SOCKS5 proxy."""
+    try:
+        host, port = proxy_str.rsplit(":", 1)
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, int(port)))
+        s.close()
+        return True
+    except:
+        return False
+
+def _load_proxies():
+    """Background thread: fetch + test proxies, fill _proxy_pool."""
+    global _proxy_pool
+    all_proxies = []
+    for src in PROXY_SOURCES:
+        try:
+            if _HAS_CFFI:
+                r = cffi_requests.get(src, impersonate="chrome124", timeout=10)
+                lines = r.text.strip().split("\n")
+            else:
+                req = urllib.request.Request(src, headers={"User-Agent": USER_AGENTS[0]})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    lines = resp.read().decode().strip().split("\n")
+            all_proxies += [l.strip() for l in lines if l.strip() and ":" in l]
+        except Exception as e:
+            print(f"  [proxy] fetch error: {e}", flush=True)
+
+    random.shuffle(all_proxies)
+    print(f"  [proxy] Testing {len(all_proxies)} proxies (parallel)…", flush=True)
+
+    working = []
+    # Test up to 200 proxies in parallel threads
+    test_batch = all_proxies[:200]
+    results = {}
+    def _t(p):
+        results[p] = _test_proxy(p, timeout=3)
+
+    threads = [threading.Thread(target=_t, args=(p,), daemon=True) for p in test_batch]
+    for t in threads: t.start()
+    for t in threads: t.join(timeout=8)
+
+    working = [p for p in test_batch if results.get(p)]
+    random.shuffle(working)
+    print(f"  [proxy] {len(working)} working proxies loaded", flush=True)
+
+    new_q = queue.Queue()
+    for p in working:
+        new_q.put(p)
+    # Also put all untested proxies as fallback
+    for p in all_proxies[200:]:
+        new_q.put(p)
+
+    with _proxy_lock:
+        while not _proxy_pool.empty():
+            try: _proxy_pool.get_nowait()
+            except: break
+        while not new_q.empty():
+            _proxy_pool.put(new_q.get())
+
+    _pool_ready.set()
+
+def _ensure_proxies():
+    """Start background proxy load if not done yet."""
+    if not _pool_ready.is_set():
+        t = threading.Thread(target=_load_proxies, daemon=True)
+        t.start()
+
+def _next_proxy():
+    """Get next proxy from pool, reload if empty."""
+    global _current_proxy
+    _pool_ready.wait(timeout=12)   # wait up to 12s for initial load
+    try:
+        _current_proxy = _proxy_pool.get_nowait()
+        return _current_proxy
+    except queue.Empty:
+        # Pool exhausted — reload in background and use direct for now
+        threading.Thread(target=_load_proxies, daemon=True).start()
+        return None
+
+# Start loading proxies immediately on startup
+threading.Thread(target=_load_proxies, daemon=True).start()
+
 def _parse_sw_response(raw_bytes):
     """Parse raw bytes from SW API. Raises RuntimeError on geo-block or bad data."""
     # CloudFront returns HTML on geo-block
@@ -274,67 +375,79 @@ def _build_sw_result(sw):
 def fetch_similarweb(domain):
     """
     Fetch SimilarWeb data for domain.
-    Order: direct curl_cffi (Chrome TLS) → CF Worker relay fallback.
-    Direct is tried first because it works better for most Indian domains.
-    Worker is fallback for when direct IP is temporarily rate-limited.
+    Rotation order (most reliable first):
+      1. SOCKS5 proxy rotation — fresh IP every 6 requests, never rate-limited
+      2. Cloudflare Worker relay — if worker configured in config.json
+      3. Direct curl_cffi (Chrome TLS) — works when IP is not blocked
     """
+    global _sw_req_count, _current_proxy
     sw_url = f"https://data.similarweb.com/api/v1/data?domain={domain}"
 
-    # ── Method 1: Direct curl_cffi (Chrome124 TLS fingerprint) ───────────────
-    if _HAS_CFFI:
-        try:
-            r = cffi_requests.get(sw_url, impersonate="chrome124",
-                                  headers=_SW_HEADERS, timeout=15)
-            if r.status_code == 200:
-                sw = _parse_sw_response(r.content)
-                result = _build_sw_result(sw)
-                result["_via"] = "direct"
-                return result
-            # 403 = IP blocked → fall through to worker
-            print(f"  [SW direct] HTTP {r.status_code} — trying worker", flush=True)
-        except RuntimeError:
-            raise
-        except Exception as e:
-            print(f"  [SW direct fail] {e} — trying worker", flush=True)
+    if not _HAS_CFFI:
+        raise RuntimeError("curl_cffi not installed")
+
+    # ── Method 1: SOCKS5 proxy rotation ──────────────────────────────────────
+    _sw_req_count += 1
+    # Rotate proxy every ROTATE_EVERY requests
+    if _sw_req_count % ROTATE_EVERY == 1 or _current_proxy is None:
+        _current_proxy = _next_proxy()
+
+    if _current_proxy:
+        proxy_url = f"socks5://{_current_proxy}"
+        # Try up to 4 proxies before giving up
+        for attempt in range(4):
+            try:
+                r = cffi_requests.get(
+                    sw_url, impersonate="chrome124",
+                    headers=_SW_HEADERS,
+                    proxies={"https": proxy_url, "http": proxy_url},
+                    timeout=12
+                )
+                if r.status_code == 200:
+                    sw = _parse_sw_response(r.content)
+                    result = _build_sw_result(sw)
+                    result["_via"] = f"proxy({_current_proxy.split(':')[0]})"
+                    print(f"  [proxy ✓] via {_current_proxy}", flush=True)
+                    return result
+                # Bad proxy or blocked — try next
+                print(f"  [proxy] HTTP {r.status_code} on {_current_proxy} — next proxy", flush=True)
+            except Exception as e:
+                print(f"  [proxy] {_current_proxy} failed ({str(e)[:40]}) — next proxy", flush=True)
+            # Get a fresh proxy
+            _current_proxy = _next_proxy()
+            if not _current_proxy:
+                break
+            proxy_url = f"socks5://{_current_proxy}"
 
     # ── Method 2: Cloudflare Worker relay ────────────────────────────────────
     if CF_WORKER:
         relay_url = f"{CF_WORKER}?domain={domain}"
         try:
-            if _HAS_CFFI:
-                r = cffi_requests.get(relay_url, impersonate="chrome124", timeout=15)
-                raw = r.content
-            else:
-                req = urllib.request.Request(relay_url, headers={
-                    "User-Agent": USER_AGENTS[0], "Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    raw = resp.read()
-            sw = _parse_sw_response(raw)
-            result = _build_sw_result(sw)
-            result["_via"] = "worker"
-            return result
+            r = cffi_requests.get(relay_url, impersonate="chrome124", timeout=15)
+            if r.status_code == 200:
+                sw = _parse_sw_response(r.content)
+                result = _build_sw_result(sw)
+                result["_via"] = "worker"
+                print(f"  [worker ✓]", flush=True)
+                return result
+            print(f"  [worker] HTTP {r.status_code}", flush=True)
         except Exception as e:
-            print(f"  [SW worker fail] {e}", flush=True)
-            raise RuntimeError(f"Both direct and worker failed: {e}")
+            print(f"  [worker fail] {e}", flush=True)
 
-    # ── Method 3: system curl fallback ───────────────────────────────────────
-    cmd = [
-        "curl", "-s", "--http2", "--compressed", "--max-time", "12",
-        "-H", f"User-Agent: {USER_AGENTS[0]}",
-        "-H", "Accept: application/json",
-        "-H", "Referer: https://www.similarweb.com/",
-        "-H", "Origin: https://www.similarweb.com",
-        "-H", "sec-fetch-site: same-site",
-        "-H", "sec-fetch-mode: cors",
-        sw_url
-    ]
-    res = subprocess.run(cmd, capture_output=True, timeout=15)
-    if res.returncode != 0:
-        raise RuntimeError(f"curl exit {res.returncode}")
-    sw = _parse_sw_response(res.stdout)
-    r2 = _build_sw_result(sw)
-    r2["_via"] = "curl"
-    return r2
+    # ── Method 3: Direct (no proxy) ──────────────────────────────────────────
+    try:
+        r = cffi_requests.get(sw_url, impersonate="chrome124",
+                              headers=_SW_HEADERS, timeout=15)
+        if r.status_code == 200:
+            sw = _parse_sw_response(r.content)
+            result = _build_sw_result(sw)
+            result["_via"] = "direct"
+            return result
+        raise RuntimeError(f"HTTP {r.status_code} — IP rate-limited")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"All methods failed: {e}")
 
 # ── Shopify product catalog + total SKU count via sitemap ─────────────────────
 def fetch_shopify_products(domain):
