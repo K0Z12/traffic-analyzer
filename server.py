@@ -336,129 +336,32 @@ def _next_proxy():
 # Start loading proxies immediately on startup
 threading.Thread(target=_load_proxies, daemon=True).start()
 
-# ── SEMrush fetcher — proxy rotates every 3-5 requests to bypass free limits ──
-_sr_count = 0
-_sr_proxy = None
-_sr_limit = 4  # will randomise after each rotation
-
-def fetch_semrush(domain):
-    """Rotate proxy every 3-5 requests so each request gets fresh free-search quota."""
-    global _sr_count, _sr_proxy, _sr_limit
-    if not _HAS_CFFI:
+# ── Organic traffic derived from SimilarWeb source breakdown ──────────────────
+def derive_organic_from_sw(sw_data):
+    """
+    SEMrush / SpyFu both show organic search traffic.
+    We can derive the same metric directly from SimilarWeb's traffic source split
+    which we already have — no extra request needed.
+    """
+    if not sw_data or not sw_data.get("visits"):
         return None
-    _sr_count += 1
-    if _sr_count >= _sr_limit or _sr_proxy is None:
-        _sr_proxy  = _next_proxy()
-        _sr_count  = 0
-        _sr_limit  = random.randint(3, 5)
-        print(f"  [SEMrush] new proxy — next rotation in {_sr_limit} req", flush=True)
-
-    px   = ({"https": f"socks5://{_sr_proxy}", "http": f"socks5://{_sr_proxy}"}
-            if _sr_proxy else {})
-    hdrs = {
-        "User-Agent":      random.choice(USER_AGENTS),
-        "Accept":          "application/json, */*",
-        "Referer":         "https://www.semrush.com/",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-
-    # Method 1 — internal domain-overview API (no login required for basic cols)
-    for db in ("in", "us"):
-        try:
-            url = (f"https://www.semrush.com/api/v3/domain/overview"
-                   f"?domain={domain}&db={db}&display_limit=1"
-                   f"&export_columns=Or,Ot,Oc,Ad,At,Ac,As")
-            r = cffi_requests.get(url, impersonate="chrome124",
-                                  headers=hdrs, proxies=px, timeout=12)
-            if r.status_code == 200:
-                rows = r.json()
-                row  = rows[0] if isinstance(rows, list) and rows else (rows or {})
-                ot   = row.get("Ot")
-                if ot is not None:
-                    print(f"  [SEMrush ✓ api/{db}] organic={ot}", flush=True)
-                    return {
-                        "organic_traffic":  int(ot),
-                        "paid_traffic":     row.get("At"),
-                        "organic_keywords": row.get("Or"),
-                        "authority_score":  row.get("As"),
-                        "_via": f"semrush_api/{db}",
-                    }
-        except Exception as e:
-            print(f"  [SEMrush api/{db}] {e}", flush=True)
-
-    # Method 2 — scrape overview page, pull embedded JSON fields
-    try:
-        url = f"https://www.semrush.com/analytics/overview/?q={domain}&db=in"
-        r   = cffi_requests.get(url, impersonate="chrome124",
-                                headers={**hdrs, "Accept": "text/html,*/*"},
-                                proxies=px, timeout=15)
-        if r.status_code == 200:
-            txt   = r.text
-            m_ot  = re.search(r'"Ot"\s*:\s*"?(\d+)"?', txt)
-            m_or  = re.search(r'"Or"\s*:\s*"?(\d+)"?', txt)
-            m_as  = re.search(r'"As"\s*:\s*"?(\d+)"?', txt)
-            if m_ot:
-                print(f"  [SEMrush ✓ scrape] organic={m_ot.group(1)}", flush=True)
-                return {
-                    "organic_traffic":  int(m_ot.group(1)),
-                    "organic_keywords": int(m_or.group(1)) if m_or else None,
-                    "authority_score":  int(m_as.group(1)) if m_as else None,
-                    "_via": "semrush_scrape",
-                }
-    except Exception as e:
-        print(f"  [SEMrush scrape] {e}", flush=True)
-
-    return None
-
-
-# ── SpyFu fetcher — free public API, no auth, no proxy needed ─────────────────
-def fetch_spyfu(domain):
-    """SpyFu exposes organic/paid click data via a public JSON endpoint."""
-    if not _HAS_CFFI:
+    sources = sw_data.get("sources", {})
+    org_pct  = sources.get("SearchOrganic", 0)
+    paid_pct = sources.get("SearchPaid", 0)
+    direct   = sources.get("Direct", 0)
+    social   = sources.get("SocialOrganic", 0)
+    visits   = sw_data["visits"]
+    if not org_pct:
         return None
-    hdrs = {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept":     "application/json, */*",
-        "Referer":    f"https://www.spyfu.com/overview/domain?query={domain}",
+    return {
+        "organic_traffic":  int(visits * org_pct),
+        "paid_traffic":     int(visits * paid_pct) if paid_pct else None,
+        "direct_traffic":   int(visits * direct)   if direct   else None,
+        "social_traffic":   int(visits * social)   if social   else None,
+        "organic_pct":      round(org_pct * 100, 1),
+        "paid_pct":         round(paid_pct * 100, 1),
+        "_via": "sw_derived",
     }
-
-    # Primary: internal domain-stats API
-    try:
-        url = (f"https://www.spyfu.com/apis/domain_stats_api/v2/getDomainStatsForSeed"
-               f"?query={domain}&countryCode=IN&isOverview=true")
-        r = cffi_requests.get(url, impersonate="chrome124", headers=hdrs, timeout=10)
-        if r.status_code == 200:
-            d    = r.json()
-            org  = d.get("organicSearchResults")  or {}
-            paid = d.get("paidSearchResults")      or {}
-            ot   = org.get("monthlyClicks")
-            if ot:
-                print(f"  [SpyFu ✓] organic={ot}", flush=True)
-                return {
-                    "organic_traffic":   int(ot),
-                    "organic_keywords":  org.get("totalResults"),
-                    "paid_traffic":      paid.get("monthlyClicks"),
-                    "domain_strength":   d.get("strengthOfWebPresence"),
-                    "_via": "spyfu",
-                }
-    except Exception as e:
-        print(f"  [SpyFu api] {e}", flush=True)
-
-    # Fallback: scrape overview page
-    try:
-        url = f"https://www.spyfu.com/overview/domain?query={domain}"
-        r   = cffi_requests.get(url, impersonate="chrome124",
-                                headers={**hdrs, "Accept": "text/html,*/*"}, timeout=12)
-        if r.status_code == 200:
-            m = re.search(r'"monthlyClicks"\s*:\s*(\d+)', r.text)
-            if m:
-                ot = int(m.group(1))
-                print(f"  [SpyFu ✓ scrape] organic={ot}", flush=True)
-                return {"organic_traffic": ot, "_via": "spyfu_scrape"}
-    except Exception as e:
-        print(f"  [SpyFu scrape] {e}", flush=True)
-
-    return None
 
 
 # ── Google Trends fetcher — interest index 0-100 for brand, geo=IN ────────────
@@ -507,29 +410,33 @@ def _shopify_safe(domain):
     except:
         return None
 
-def _build_multi_sources(sw_visits, sr, sf, gt):
+def _build_multi_sources(sw_data, gt):
+    """Build cross-source signals dict from available data."""
     out = {}
-    if sw_visits:
-        out["similarweb"] = {"total_visits": sw_visits, "label": "SimilarWeb"}
-    if sr:
-        out["semrush"] = {
-            "label": "SEMrush",
-            "organic_traffic":  sr.get("organic_traffic"),
-            "paid_traffic":     sr.get("paid_traffic"),
-            "organic_keywords": sr.get("organic_keywords"),
-            "authority_score":  sr.get("authority_score"),
+
+    if sw_data and sw_data.get("visits"):
+        v = sw_data["visits"]
+        out["similarweb"] = {
+            "label":        "SimilarWeb — Total Traffic",
+            "total_visits": v,
+            "rank":         sw_data.get("rank"),
         }
-    if sf:
-        out["spyfu"] = {
-            "label": "SpyFu",
-            "organic_traffic":  sf.get("organic_traffic"),
-            "paid_traffic":     sf.get("paid_traffic"),
-            "organic_keywords": sf.get("organic_keywords"),
-            "domain_strength":  sf.get("domain_strength"),
-        }
+        # Derive channel breakdown from SW source split
+        org = derive_organic_from_sw(sw_data)
+        if org:
+            out["organic"] = {
+                "label":           "Organic Search Traffic",
+                "organic_traffic": org["organic_traffic"],
+                "paid_traffic":    org.get("paid_traffic"),
+                "direct_traffic":  org.get("direct_traffic"),
+                "social_traffic":  org.get("social_traffic"),
+                "organic_pct":     org["organic_pct"],
+                "paid_pct":        org["paid_pct"],
+            }
+
     if gt:
         out["google_trends"] = {
-            "label":   "Google Trends (IN)",
+            "label":   "Google Trends (India)",
             "current": gt.get("current"),
             "avg_90d": gt.get("avg_90d"),
             "peak":    gt.get("peak"),
@@ -839,55 +746,24 @@ def three_months():
         result.append(datetime.date(y, m, 1))
     return result
 
-# ── Main analysis — all sources fetched in parallel ───────────────────────────
+# ── Main analysis — always fetch live SW first ────────────────────────────────
 def analyze(domain):
     bare = domain.lstrip("www.")
+    verified_key = bare if bare in VERIFIED else (domain if domain in VERIFIED else None)
 
-    # ══ TIER 1: Verified DB ══════════════════════════════════════════════════
-    key = bare if bare in VERIFIED else (domain if domain in VERIFIED else None)
-    if key:
-        e  = VERIFIED[key]
-        ml = three_months()
-        months = []
-        for i, mo in enumerate(ml):
-            v = round(e["v"] * [0.93, 0.97, 1.00][i])
-            months.append({"month": mo.strftime("%Y-%m-01"),
-                           "label": f"{MONTH_NAMES[mo.month-1]} {mo.year}",
-                           "visits": v})
-        # Fetch supplementary sources in parallel (non-blocking — returns quickly)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
-            f_sr = ex.submit(_safe, fetch_semrush, bare)
-            f_sf = ex.submit(_safe, fetch_spyfu,   bare)
-            f_gt = ex.submit(_safe, fetch_google_trends, bare)
-        return {
-            "domain": domain, "tier": "verified",
-            "tierLabel":  f"✓ Verified  —  {e['src']} ({e['yr']})",
-            "monthlyVisits": e["v"], "globalRank": e["rank"],
-            "bounceRate": e["br"], "pagesPerVisit": e["ppv"],
-            "avgVisitDuration": e["dur"], "platform": e["platform"],
-            "niche": e["niche"], "topCountries": e["countries"],
-            "monthsData": months,
-            "multiSources": _build_multi_sources(
-                e["v"], f_sr.result(), f_sf.result(), f_gt.result()),
-        }
+    # ══ ALWAYS fetch SW live first (fresh data every search) ════════════════
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+        f_sw = ex.submit(_safe, fetch_similarweb,   bare)
+        f_gt = ex.submit(_safe, fetch_google_trends, bare)
+        f_sh = ex.submit(_shopify_safe,              bare)
 
-    # ══ TIER 2+: All sources in parallel ════════════════════════════════════
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
-        f_sw = ex.submit(_safe, fetch_similarweb,    bare)
-        f_sr = ex.submit(_safe, fetch_semrush,        bare)
-        f_sf = ex.submit(_safe, fetch_spyfu,          bare)
-        f_gt = ex.submit(_safe, fetch_google_trends,  bare)
-        f_sh = ex.submit(_shopify_safe,               bare)
-
-    sw           = f_sw.result()
-    semrush_data = f_sr.result()
-    spyfu_data   = f_sf.result()
-    trends_data  = f_gt.result()
-    prods        = f_sh.result()
+    sw          = f_sw.result()
+    trends_data = f_gt.result()
+    prods       = f_sh.result()
 
     sw_geo_blocked = False
     if sw is None:
-        sw_geo_blocked = True   # fetch_similarweb raised; _safe returned None
+        sw_geo_blocked = True
 
     sw_category = sw["category"] if sw else None
     is_small    = sw.get("is_small", False) if sw else False
@@ -896,9 +772,9 @@ def analyze(domain):
     if prods:
         print(f"  [Shopify ✓] {prods.get('count',0)} products, avg ₹{prods.get('avg_price_inr',0)}", flush=True)
 
-    multi = _build_multi_sources(
-        sw["visits"] if sw else None, semrush_data, spyfu_data, trends_data)
+    multi = _build_multi_sources(sw, trends_data)
 
+    # ══ TIER 1: SW live data (always preferred — real-time, always fresh) ════
     if sw and sw["visits"]:
         visits    = sw["visits"]
         sw_idx    = {h["month"][:7]: h["visits"] for h in sw["history"]}
@@ -921,7 +797,30 @@ def analyze(domain):
             "trafficSources": sw["sources"],
             "shopifyProducts": prods,
             "monthsData": months,
-            "multiSources": multi,
+            "multiSources": _build_multi_sources(sw, trends_data),
+        }
+
+    # ══ TIER 2: Verified DB fallback — only used when SW is blocked/unavailable
+    if verified_key and sw_geo_blocked:
+        e  = VERIFIED[verified_key]
+        ml = three_months()
+        months = []
+        for i, mo in enumerate(ml):
+            v = round(e["v"] * [0.93, 0.97, 1.00][i])
+            months.append({"month": mo.strftime("%Y-%m-01"),
+                           "label": f"{MONTH_NAMES[mo.month-1]} {mo.year}",
+                           "visits": v})
+        print(f"  [verified fallback] SW unavailable, using {e['src']} ({e['yr']})", flush=True)
+        sw_stub = {"visits": e["v"], "sources": {}, "rank": e["rank"]}
+        return {
+            "domain": domain, "tier": "verified",
+            "tierLabel":  f"⚠ Cached data (live fetch failed)  —  {e['src']} ({e['yr']})",
+            "monthlyVisits": e["v"], "globalRank": e["rank"],
+            "bounceRate": e["br"], "pagesPerVisit": e["ppv"],
+            "avgVisitDuration": e["dur"], "platform": e["platform"],
+            "niche": e["niche"], "topCountries": e["countries"],
+            "monthsData": months,
+            "multiSources": _build_multi_sources(sw_stub, trends_data),
         }
 
     # ══ TIER 3: No SW data — still return supplementary sources ═════════════
