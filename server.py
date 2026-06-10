@@ -830,7 +830,7 @@ def three_months():
 
 # ── Main analysis — always fetch live SW first ────────────────────────────────
 def analyze(domain):
-    bare = domain.lstrip("www.")
+    bare = domain[4:] if domain.startswith("www.") else domain
     verified_key = bare if bare in VERIFIED else (domain if domain in VERIFIED else None)
 
     # ══ ALWAYS fetch SW live first (fresh data every search) ════════════════
@@ -849,6 +849,9 @@ def analyze(domain):
 
     sw_category = sw["category"] if sw else None
     is_small    = sw.get("is_small", False) if sw else False
+    # Treat suspiciously low SW visits (<5K) as unreliable — same as IsSmall
+    if sw and sw.get("visits", 0) < 5000:
+        is_small = True
     niche       = infer_niche(bare, sw_category)
 
     if prods:
@@ -857,7 +860,7 @@ def analyze(domain):
     multi = _build_multi_sources(sw, trends_data)
 
     # ══ TIER 1: SW live data (always preferred — real-time, always fresh) ════
-    if sw and sw["visits"]:
+    if sw and sw["visits"] and sw["visits"] > 5000:  # ignore SW noise data < 5K
         visits    = sw["visits"]
         sw_idx    = {h["month"][:7]: h["visits"] for h in sw["history"]}
         ml        = three_months()
@@ -981,7 +984,8 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path)
         if p.path == "/api/analyze":
             qs     = parse_qs(p.query)
-            domain = qs.get("domain", [""])[0].strip().lower().lstrip("www.")
+            raw_domain = qs.get("domain", [""])[0].strip().lower()
+            domain = raw_domain[4:] if raw_domain.startswith("www.") else raw_domain
             if not domain:
                 self.send_json({"error": "domain required"}, 400); return
 
