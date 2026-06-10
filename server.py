@@ -248,63 +248,85 @@ _current_proxy = None
 _pool_ready    = threading.Event()
 
 PROXY_SOURCES = [
-    "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=4000&country=all&anonymity=elite",
-    "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=4000&country=all",
+    # SOCKS5
+    ("socks5", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=5000&country=all&anonymity=elite"),
+    ("socks5", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=5000&country=all"),
+    ("socks5", "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"),
+    # HTTP/HTTPS proxies (broader pool)
+    ("http",   "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=http&timeout=5000&country=all&anonymity=elite"),
+    ("http",   "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt"),
 ]
 
-def _test_proxy(proxy_str, timeout=4):
-    """Quick TCP reachability test for a SOCKS5 proxy."""
-    try:
-        host, port = proxy_str.rsplit(":", 1)
-        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-        s.settimeout(timeout)
-        s.connect((host, int(port)))
-        s.close()
-        return True
-    except:
+_SW_TEST_URL = "https://data.similarweb.com/api/v1/data?domain=google.com"
+
+def _test_proxy_real(proxy_str, proto="socks5", timeout=8):
+    """Test proxy by actually fetching SW — only accept if SW returns valid JSON."""
+    if not _HAS_CFFI:
         return False
+    try:
+        prefix = "socks5" if proto == "socks5" else "http"
+        purl = f"{prefix}://{proxy_str}"
+        r = cffi_requests.get(
+            _SW_TEST_URL,
+            impersonate="chrome124",
+            headers=_SW_HEADERS,
+            proxies={"https": purl, "http": purl},
+            timeout=timeout,
+        )
+        if r.status_code == 200 and b'"Engagments"' in r.content:
+            return True
+        # 404 = domain not found but SW responded = proxy works
+        if r.status_code == 404:
+            return True
+    except:
+        pass
+    return False
 
 def _load_proxies():
-    """Background thread: fetch + test proxies, fill _proxy_pool."""
+    """Background thread: fetch + real-test proxies against SW, fill _proxy_pool."""
     global _proxy_pool
-    all_proxies = []
-    for src in PROXY_SOURCES:
+    all_proxies = []   # list of (proto, host:port)
+    for proto, src in PROXY_SOURCES:
         try:
             if _HAS_CFFI:
-                r = cffi_requests.get(src, impersonate="chrome124", timeout=10)
+                r = cffi_requests.get(src, impersonate="chrome124", timeout=12)
                 lines = r.text.strip().split("\n")
             else:
                 req = urllib.request.Request(src, headers={"User-Agent": USER_AGENTS[0]})
-                with urllib.request.urlopen(req, timeout=10) as resp:
+                with urllib.request.urlopen(req, timeout=12) as resp:
                     lines = resp.read().decode().strip().split("\n")
-            all_proxies += [l.strip() for l in lines if l.strip() and ":" in l]
+            added = [l.strip() for l in lines if l.strip() and ":" in l]
+            all_proxies += [(proto, p) for p in added]
+            print(f"  [proxy] fetched {len(added)} {proto} proxies from {src[:50]}…", flush=True)
         except Exception as e:
-            print(f"  [proxy] fetch error: {e}", flush=True)
+            print(f"  [proxy] fetch error ({src[:40]}): {e}", flush=True)
 
     random.shuffle(all_proxies)
-    print(f"  [proxy] Testing {len(all_proxies)} proxies (parallel)…", flush=True)
+    total = len(all_proxies)
+    # Test up to 400 proxies — real SW hit, more thorough
+    test_batch = all_proxies[:400]
+    print(f"  [proxy] Real-testing {len(test_batch)}/{total} proxies against SimilarWeb…", flush=True)
 
-    working = []
-    # Test up to 200 proxies in parallel threads
-    test_batch = all_proxies[:200]
     results = {}
-    def _t(p):
-        results[p] = _test_proxy(p, timeout=3)
+    def _t(item):
+        proto, p = item
+        results[p] = _test_proxy_real(p, proto=proto, timeout=8)
 
-    threads = [threading.Thread(target=_t, args=(p,), daemon=True) for p in test_batch]
+    threads = [threading.Thread(target=_t, args=(item,), daemon=True) for item in test_batch]
     for t in threads: t.start()
-    for t in threads: t.join(timeout=8)
+    for t in threads: t.join(timeout=20)
 
-    working = [p for p in test_batch if results.get(p)]
+    working_s5 = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "socks5"]
+    working_h  = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "http"]
+    # Prefer socks5, then http
+    working = working_s5 + working_h
     random.shuffle(working)
-    print(f"  [proxy] {len(working)} working proxies loaded", flush=True)
+    print(f"  [proxy] {len(working)} SW-verified proxies ({len(working_s5)} socks5, {len(working_h)} http)", flush=True)
 
     new_q = queue.Queue()
-    for p in working:
-        new_q.put(p)
-    # Also put all untested proxies as fallback
-    for p in all_proxies[200:]:
-        new_q.put(p)
+    for item in working:
+        new_q.put(item)
 
     with _proxy_lock:
         while not _proxy_pool.empty():
@@ -322,14 +344,15 @@ def _ensure_proxies():
         t.start()
 
 def _next_proxy():
-    """Get next proxy from pool, reload if empty."""
+    """Get next (proto, host:port) tuple from pool, reload if empty."""
     global _current_proxy
-    _pool_ready.wait(timeout=12)   # wait up to 12s for initial load
+    _pool_ready.wait(timeout=20)   # wait up to 20s for initial SW-verified load
     try:
         _current_proxy = _proxy_pool.get_nowait()
         return _current_proxy
     except queue.Empty:
         # Pool exhausted — reload in background and use direct for now
+        _pool_ready.clear()
         threading.Thread(target=_load_proxies, daemon=True).start()
         return None
 
@@ -505,9 +528,10 @@ def fetch_similarweb(domain):
         _current_proxy = _next_proxy()
 
     if _current_proxy:
-        proxy_url = f"socks5://{_current_proxy}"
-        # Try up to 4 proxies before giving up
-        for attempt in range(4):
+        # Try up to 5 proxies before giving up
+        for attempt in range(5):
+            proto, addr = _current_proxy
+            proxy_url = f"{proto}://{addr}"
             try:
                 r = cffi_requests.get(
                     sw_url, impersonate="chrome124",
@@ -518,18 +542,15 @@ def fetch_similarweb(domain):
                 if r.status_code == 200:
                     sw = _parse_sw_response(r.content)
                     result = _build_sw_result(sw)
-                    result["_via"] = f"proxy({_current_proxy.split(':')[0]})"
-                    print(f"  [proxy ✓] via {_current_proxy}", flush=True)
+                    result["_via"] = f"proxy({proto}:{addr.split(':')[0]})"
+                    print(f"  [proxy ✓] via {proto}://{addr}", flush=True)
                     return result
-                # Bad proxy or blocked — try next
-                print(f"  [proxy] HTTP {r.status_code} on {_current_proxy} — next proxy", flush=True)
+                print(f"  [proxy] HTTP {r.status_code} on {addr} — next proxy", flush=True)
             except Exception as e:
-                print(f"  [proxy] {_current_proxy} failed ({str(e)[:40]}) — next proxy", flush=True)
-            # Get a fresh proxy
+                print(f"  [proxy] {addr} failed ({str(e)[:40]}) — next proxy", flush=True)
             _current_proxy = _next_proxy()
             if not _current_proxy:
                 break
-            proxy_url = f"socks5://{_current_proxy}"
 
     # ── Method 2: Cloudflare Worker relay ────────────────────────────────────
     if CF_WORKER:
