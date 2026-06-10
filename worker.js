@@ -1,23 +1,25 @@
 /**
- * Cloudflare Worker — SimilarWeb relay
+ * Cloudflare Worker — SimilarWeb relay (with UA rotation)
  * Deploy FREE at: https://workers.cloudflare.com
- *
- * Steps (5 minutes):
- * 1. Go to https://workers.cloudflare.com → Sign up (free, no card needed)
- * 2. Click "Create a Worker"
- * 3. Delete the default code, paste this entire file
- * 4. Click "Save & Deploy"
- * 5. Copy your worker URL (e.g. https://sw-relay.YOUR-NAME.workers.dev)
- * 6. Paste it into config.json in this folder:
- *    { "cf_worker": "https://sw-relay.YOUR-NAME.workers.dev" }
- * 7. Restart server.py — all domains will now work, no 403 ever.
- *
- * Free tier: 100,000 requests/day. More than enough for unlimited personal use.
  */
+
+const USER_AGENTS = [
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
+];
+
+const SEC_CH_UA = [
+  '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  '"Chromium";v="123", "Google Chrome";v="123", "Not-A.Brand";v="8"',
+  '"Google Chrome";v="124", "Not-A.Brand";v="99", "Chromium";v="124"',
+];
 
 export default {
   async fetch(request) {
-    // CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, {
         headers: {
@@ -37,20 +39,26 @@ export default {
       });
     }
 
-    // Proxy to SimilarWeb internal API with browser headers
+    const ua  = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+    const cha = SEC_CH_UA[Math.floor(Math.random() * SEC_CH_UA.length)];
+    const isMac = ua.includes("Macintosh");
+    const isWin = ua.includes("Windows");
+
     const swUrl = `https://data.similarweb.com/api/v1/data?domain=${encodeURIComponent(domain)}`;
     try {
       const resp = await fetch(swUrl, {
         headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "User-Agent": ua,
           "Accept": "application/json, text/plain, */*",
-          "Referer": "https://www.similarweb.com/",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://www.similarweb.com/website/" + domain + "/",
           "Origin": "https://www.similarweb.com",
           "sec-fetch-site": "same-site",
           "sec-fetch-mode": "cors",
-          "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+          "sec-fetch-dest": "empty",
+          "sec-ch-ua": cha,
           "sec-ch-ua-mobile": "?0",
-          "sec-ch-ua-platform": '"macOS"',
+          "sec-ch-ua-platform": isMac ? '"macOS"' : isWin ? '"Windows"' : '"Linux"',
         }
       });
       const body = await resp.text();
@@ -59,7 +67,7 @@ export default {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
           "Access-Control-Allow-Origin": "*",
-          "Cache-Control": "public, max-age=3600"
+          "Cache-Control": "no-store",
         }
       });
     } catch (err) {

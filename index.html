@@ -322,85 +322,72 @@ function render(d){
 function renderMultiSources(ms){
   if(!ms || !Object.keys(ms).length){ hide("multiCard"); return; }
   show("multiCard");
-  const icons = {
-    similarweb:    "🌐",
-    semrush:       "📊",
-    spyfu:         "🕵️",
-    google_trends: "📈",
-  };
   const rows = [];
-  // SimilarWeb row
+
+  // SimilarWeb total traffic
   if(ms.similarweb){
     const s = ms.similarweb;
     rows.push(`
       <div class="bg-white/[.02] border border-white/[.05] rounded-xl p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <span>${icons.similarweb}</span>
+        <div class="flex items-center gap-2 mb-1">
+          <span>🌐</span>
           <span class="text-xs font-bold text-white">${s.label}</span>
-          <span class="ml-auto text-xs text-indigo-300 font-semibold">${fv(s.total_visits)} total visits</span>
+          <span class="ml-auto text-xs text-indigo-300 font-semibold">${fv(s.total_visits)} visits/mo</span>
         </div>
-        <p class="text-xs text-gray-600">All traffic channels combined (organic + paid + direct + social)</p>
+        <p class="text-xs text-gray-600">All channels · organic + paid + direct + social + referral</p>
       </div>`);
   }
-  // SEMrush row
-  if(ms.semrush){
-    const s = ms.semrush;
+
+  // Channel breakdown (derived from SW sources)
+  if(ms.organic){
+    const o = ms.organic;
+    const cols = [
+      o.organic_traffic != null ? ['🔍 Organic','text-green-400',fv(o.organic_traffic),`${o.organic_pct}% of traffic`] : null,
+      o.paid_traffic    != null ? ['💰 Paid Ads','text-yellow-400',fv(o.paid_traffic),`${o.paid_pct}% of traffic`]    : null,
+      o.direct_traffic  != null ? ['📌 Direct','text-blue-400',fv(o.direct_traffic),'bookmark / type-in']              : null,
+      o.social_traffic  != null ? ['📱 Social','text-pink-400',fv(o.social_traffic),'organic social']                  : null,
+    ].filter(Boolean);
     rows.push(`
       <div class="bg-white/[.02] border border-white/[.05] rounded-xl p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <span>${icons.semrush}</span>
-          <span class="text-xs font-bold text-white">${s.label}</span>
-          ${s.authority_score ? `<span class="ml-auto text-xs bg-orange-950/50 text-orange-300 border border-orange-800/30 px-2 py-0.5 rounded-full font-semibold">AS ${s.authority_score}</span>` : ""}
-        </div>
+        <p class="text-xs font-bold text-white mb-2">📊 Traffic Channel Breakdown</p>
         <div class="grid grid-cols-2 gap-2">
-          ${s.organic_traffic  ? `<div class="text-center"><p class="text-xs text-gray-600">Organic Traffic</p><p class="text-sm font-bold text-white">${fv(s.organic_traffic)}</p></div>` : ""}
-          ${s.paid_traffic     ? `<div class="text-center"><p class="text-xs text-gray-600">Paid Traffic</p><p class="text-sm font-bold text-white">${fv(s.paid_traffic)}</p></div>` : ""}
-          ${s.organic_keywords ? `<div class="text-center"><p class="text-xs text-gray-600">Organic Keywords</p><p class="text-sm font-bold text-white">${fv(s.organic_keywords)}</p></div>` : ""}
+          ${cols.map(([label,color,val,sub])=>`
+            <div class="bg-white/[.02] rounded-lg p-2">
+              <p class="text-xs ${color} font-semibold">${label}</p>
+              <p class="text-sm font-bold text-white">${val}</p>
+              <p class="text-xs text-gray-600">${sub}</p>
+            </div>`).join("")}
         </div>
       </div>`);
   }
-  // SpyFu row
-  if(ms.spyfu){
-    const s = ms.spyfu;
-    rows.push(`
-      <div class="bg-white/[.02] border border-white/[.05] rounded-xl p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <span>${icons.spyfu}</span>
-          <span class="text-xs font-bold text-white">${s.label}</span>
-          ${s.domain_strength ? `<span class="ml-auto text-xs text-gray-500">Strength: ${s.domain_strength}</span>` : ""}
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          ${s.organic_traffic  ? `<div class="text-center"><p class="text-xs text-gray-600">Organic Clicks</p><p class="text-sm font-bold text-white">${fv(s.organic_traffic)}</p></div>` : ""}
-          ${s.paid_traffic     ? `<div class="text-center"><p class="text-xs text-gray-600">Paid Clicks</p><p class="text-sm font-bold text-white">${fv(s.paid_traffic)}</p></div>` : ""}
-          ${s.organic_keywords ? `<div class="text-center"><p class="text-xs text-gray-600">Keywords</p><p class="text-sm font-bold text-white">${fv(s.organic_keywords)}</p></div>` : ""}
-        </div>
-      </div>`);
-  }
-  // Google Trends row
+
+  // Google Trends
   if(ms.google_trends){
     const t = ms.google_trends;
     const w = t.weekly||[];
     const maxW = Math.max(...w, 1);
-    const trendColor = t.trend&&t.trend.includes("Rising") ? "text-green-400" : t.trend&&t.trend.includes("Falling") ? "text-red-400" : "text-gray-400";
+    const tc = t.trend&&t.trend.includes("Rising") ? "text-green-400" : t.trend&&t.trend.includes("Falling") ? "text-red-400" : "text-gray-400";
     rows.push(`
       <div class="bg-white/[.02] border border-white/[.05] rounded-xl p-3">
         <div class="flex items-center gap-2 mb-2">
-          <span>${icons.google_trends}</span>
+          <span>📈</span>
           <span class="text-xs font-bold text-white">${t.label}</span>
-          <span class="ml-auto text-xs ${trendColor} font-semibold">${t.trend||""}</span>
+          <span class="ml-auto text-xs ${tc} font-semibold">${t.trend||""}</span>
         </div>
-        <div class="flex items-end gap-px h-10 mb-2">
+        <div class="flex items-end gap-px h-8 mb-2">
           ${w.map(v=>`<div class="flex-1 rounded-sm bg-indigo-500/60" style="height:${Math.round(v/maxW*100)}%"></div>`).join("")}
         </div>
         <div class="grid grid-cols-3 gap-2 text-center">
-          <div><p class="text-xs text-gray-600">Now</p><p class="text-sm font-bold text-white">${t.current??'—'}</p></div>
-          <div><p class="text-xs text-gray-600">90d Avg</p><p class="text-sm font-bold text-white">${t.avg_90d??'—'}</p></div>
-          <div><p class="text-xs text-gray-600">Peak</p><p class="text-sm font-bold text-white">${t.peak??'—'}</p></div>
+          <div><p class="text-xs text-gray-600">Now</p><p class="text-sm font-bold text-white">${t.current??'—'}/100</p></div>
+          <div><p class="text-xs text-gray-600">90d Avg</p><p class="text-sm font-bold text-white">${t.avg_90d??'—'}/100</p></div>
+          <div><p class="text-xs text-gray-600">Peak</p><p class="text-sm font-bold text-white">${t.peak??'—'}/100</p></div>
         </div>
-        <p class="text-xs text-gray-700 mt-1 text-center">Interest score 0–100 · India · last 90 days · keyword: "${t.keyword}"</p>
+        <p class="text-xs text-gray-700 mt-1.5 text-center">Search interest 0–100 · India · last 90 days · "${t.keyword}"</p>
       </div>`);
   }
-  document.getElementById("multiInfo").innerHTML = rows.join("");
+
+  document.getElementById("multiInfo").innerHTML = rows.join("") ||
+    `<p class="text-xs text-gray-600 text-center py-4">No supplementary data available for this domain.</p>`;
 }
 
 async function go(){

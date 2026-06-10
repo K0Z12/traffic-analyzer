@@ -11,7 +11,7 @@ Data waterfall (most accurate first):
 
 Free · No API key · Unlimited use
 """
-import json, gzip, time, os, random, datetime, re, subprocess
+import json, gzip, time, os, random, datetime, re, subprocess, socket
 import urllib.request, urllib.error
 import concurrent.futures
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -243,7 +243,7 @@ _SW_HEADERS = {
 # Completely bypasses IP-based rate limiting.
 import threading, queue, socket as _socket
 
-ROTATE_EVERY   = 3        # rotate proxy after this many SW requests (aggressive for bulk use)
+ROTATE_EVERY   = 1        # rotate proxy every request
 _proxy_pool    = queue.Queue()
 _proxy_lock    = threading.Lock()
 _sw_req_count  = 0
@@ -296,35 +296,23 @@ PROXY_SOURCES = [
     ("http",   "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt"),
 ]
 
-_SW_TEST_URL = "https://data.similarweb.com/api/v1/data?domain=google.com"
-
-def _test_proxy_real(proxy_str, proto="socks5", timeout=8):
-    """Test proxy by actually fetching SW — only accept if SW returns valid JSON."""
-    if not _HAS_CFFI:
-        return False
+def _test_proxy(proxy_str, timeout=3):
+    """TCP-only socket test — fast, doesn't burn SW quota."""
     try:
-        prefix = "socks5" if proto == "socks5" else "http"
-        purl = f"{prefix}://{proxy_str}"
-        r = cffi_requests.get(
-            _SW_TEST_URL,
-            impersonate="chrome124",
-            headers=_SW_HEADERS,
-            proxies={"https": purl, "http": purl},
-            timeout=timeout,
-        )
-        if r.status_code == 200 and b'"Engagments"' in r.content:
-            return True
-        # 404 = domain not found but SW responded = proxy works
-        if r.status_code == 404:
-            return True
+        host, port_s = proxy_str.rsplit(":", 1)
+        port = int(port_s)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, port))
+        s.close()
+        return True
     except:
-        pass
-    return False
+        return False
 
 def _load_proxies():
-    """Background thread: fetch + real-test proxies against SW, fill _proxy_pool."""
+    """Background thread: fetch + TCP-test proxies, fill _proxy_pool."""
     global _proxy_pool
-    all_proxies = []   # list of (proto, host:port)
+    all_proxies = []
     for proto, src in PROXY_SOURCES:
         try:
             if _HAS_CFFI:
@@ -336,12 +324,11 @@ def _load_proxies():
                     lines = resp.read().decode().strip().split("\n")
             added = [l.strip() for l in lines if l.strip() and ":" in l]
             all_proxies += [(proto, p) for p in added]
-            print(f"  [proxy] fetched {len(added)} {proto} proxies from {src[:50]}…", flush=True)
+            print(f"  [proxy] fetched {len(added)} {proto} from {src[:50]}…", flush=True)
         except Exception as e:
             print(f"  [proxy] fetch error ({src[:40]}): {e}", flush=True)
 
     random.shuffle(all_proxies)
-    # Deduplicate
     seen = set(); deduped = []
     for item in all_proxies:
         if item[1] not in seen:
@@ -349,26 +336,24 @@ def _load_proxies():
     all_proxies = deduped
     total = len(all_proxies)
 
-    # Test up to 2000 proxies — real SW hit
     test_batch = all_proxies[:2000]
-    print(f"  [proxy] Real-testing {len(test_batch)}/{total} proxies against SimilarWeb…", flush=True)
+    print(f"  [proxy] TCP-testing {len(test_batch)}/{total} proxies…", flush=True)
 
     results = {}
     def _t(item):
         proto, p = item
-        results[p] = _test_proxy_real(p, proto=proto, timeout=8)
+        results[p] = _test_proxy(p, timeout=3)
 
     threads = [threading.Thread(target=_t, args=(item,), daemon=True) for item in test_batch]
     for t in threads: t.start()
-    for t in threads: t.join(timeout=35)
+    for t in threads: t.join(timeout=20)
 
     working_s5 = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "socks5"]
     working_s4 = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "socks4"]
     working_h  = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "http"]
-    # Prefer socks5 > socks4 > http
     working = working_s5 + working_s4 + working_h
     random.shuffle(working)
-    print(f"  [proxy] {len(working)} SW-verified proxies "
+    print(f"  [proxy] {len(working)} TCP-reachable proxies "
           f"({len(working_s5)} socks5, {len(working_s4)} socks4, {len(working_h)} http) "
           f"from {total} candidates", flush=True)
 
@@ -571,10 +556,7 @@ def _build_sw_result(sw):
 def fetch_similarweb(domain):
     """
     Fetch SimilarWeb data for domain.
-    Rotation order (most reliable first):
-      1. SOCKS5 proxy rotation — fresh IP every 6 requests, never rate-limited
-      2. Cloudflare Worker relay — if worker configured in config.json
-      3. Direct curl_cffi (Chrome TLS) — works when IP is not blocked
+    Order: proxy rotation → worker → direct
     """
     global _sw_req_count, _current_proxy
     sw_url = f"https://data.similarweb.com/api/v1/data?domain={domain}"
@@ -582,36 +564,30 @@ def fetch_similarweb(domain):
     if not _HAS_CFFI:
         raise RuntimeError("curl_cffi not installed")
 
-    # ── Method 1: SOCKS5 proxy rotation ──────────────────────────────────────
     _sw_req_count += 1
-    # Rotate proxy every ROTATE_EVERY requests
-    if _sw_req_count % ROTATE_EVERY == 1 or _current_proxy is None:
-        _current_proxy = _next_proxy()
 
-    if _current_proxy:
-        # Try up to 5 proxies before giving up
-        for attempt in range(5):
-            proto, addr = _current_proxy
-            proxy_url = f"{proto}://{addr}"
-            try:
-                r = cffi_requests.get(
-                    sw_url, impersonate="chrome124",
-                    headers=_SW_HEADERS,
-                    proxies={"https": proxy_url, "http": proxy_url},
-                    timeout=12
-                )
-                if r.status_code == 200:
-                    sw = _parse_sw_response(r.content)
-                    result = _build_sw_result(sw)
-                    result["_via"] = f"proxy({proto}:{addr.split(':')[0]})"
-                    print(f"  [proxy ✓] via {proto}://{addr}", flush=True)
-                    return result
-                print(f"  [proxy] HTTP {r.status_code} on {addr} — next proxy", flush=True)
-            except Exception as e:
-                print(f"  [proxy] {addr} failed ({str(e)[:40]}) — next proxy", flush=True)
-            _current_proxy = _next_proxy()
-            if not _current_proxy:
-                break
+    # ── Method 1: Proxy rotation (new IP every request) ──────────────────────
+    for attempt in range(3):
+        _current_proxy = _next_proxy()
+        if not _current_proxy:
+            break
+        proto, addr = _current_proxy
+        proxy_url = f"{proto}://{addr}"
+        try:
+            r = cffi_requests.get(
+                sw_url, impersonate="chrome124",
+                headers=_SW_HEADERS,
+                proxies={"https": proxy_url, "http": proxy_url},
+                timeout=8
+            )
+            if r.status_code == 200:
+                sw = _parse_sw_response(r.content)
+                result = _build_sw_result(sw)
+                result["_via"] = f"proxy({proto}:{addr.split(':')[0]})"
+                print(f"  [proxy ✓] {proto}://{addr}", flush=True)
+                return result
+        except Exception:
+            pass
 
     # ── Method 2: Cloudflare Worker relay ────────────────────────────────────
     if CF_WORKER:
@@ -628,7 +604,7 @@ def fetch_similarweb(domain):
         except Exception as e:
             print(f"  [worker fail] {e}", flush=True)
 
-    # ── Method 3: Direct (no proxy) ──────────────────────────────────────────
+    # ── Method 3: Direct curl_cffi (last resort) ──────────────────────────────
     try:
         r = cffi_requests.get(sw_url, impersonate="chrome124",
                               headers=_SW_HEADERS, timeout=15)
@@ -637,11 +613,11 @@ def fetch_similarweb(domain):
             result = _build_sw_result(sw)
             result["_via"] = "direct"
             return result
-        raise RuntimeError(f"HTTP {r.status_code} — IP rate-limited")
-    except RuntimeError:
-        raise
+        print(f"  [direct] HTTP {r.status_code}", flush=True)
     except Exception as e:
-        raise RuntimeError(f"All methods failed: {e}")
+        print(f"  [direct fail] {e}", flush=True)
+
+    raise RuntimeError("All methods failed — IP rate-limited")
 
 # ── Shopify product catalog + total SKU count via sitemap ─────────────────────
 def fetch_shopify_products(domain):
@@ -936,8 +912,8 @@ def analyze(domain):
         label = "⚠ Very low traffic — site is too small to measure precisely"
         note  = "Estimated < 10,000 visits/month. Panel data is insufficient for an exact number."
     elif sw_geo_blocked:
-        label = "⚠ Traffic data temporarily unavailable (IP rate-limited)"
-        note  = "Traffic data temporarily unavailable. Try again in a few minutes."
+        label = "⚠ Proxy fetch failed"
+        note  = "All proxy/relay methods failed for this domain. Try again later."
     else:
         label = "❌ No data — domain not found in traffic database"
         note  = "This domain may be too new, parked, or below the tracking threshold."
@@ -1016,8 +992,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(404); self.end_headers()
 
 
+from socketserver import ThreadingMixIn
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle each request in a separate thread."""
+    daemon_threads = True
+
 if __name__ == "__main__":
-    s = HTTPServer(("", PORT), Handler)
+    s = ThreadedHTTPServer(("", PORT), Handler)
     print(f"\nIndian E-commerce Analyzer  →  http://localhost:{PORT}")
     print(f"Verified DB: {len(VERIFIED)} brands  |  Free · No API key · Unlimited\n")
     if not CF_WORKER:
