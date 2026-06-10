@@ -243,7 +243,7 @@ _SW_HEADERS = {
 # Completely bypasses IP-based rate limiting.
 import threading, queue, socket as _socket
 
-ROTATE_EVERY   = 1        # rotate proxy every request
+ROTATE_EVERY   = 3        # rotate proxy after every 3 requests
 _proxy_pool    = queue.Queue()
 _proxy_lock    = threading.Lock()
 _sw_req_count  = 0
@@ -556,7 +556,7 @@ def _build_sw_result(sw):
 def fetch_similarweb(domain):
     """
     Fetch SimilarWeb data for domain.
-    Order: proxy rotation → worker → direct
+    Order (7PM working config): direct → worker → proxy
     """
     global _sw_req_count, _current_proxy
     sw_url = f"https://data.similarweb.com/api/v1/data?domain={domain}"
@@ -566,28 +566,18 @@ def fetch_similarweb(domain):
 
     _sw_req_count += 1
 
-    # ── Method 1: Proxy rotation (new IP every request) ──────────────────────
-    for attempt in range(3):
-        _current_proxy = _next_proxy()
-        if not _current_proxy:
-            break
-        proto, addr = _current_proxy
-        proxy_url = f"{proto}://{addr}"
-        try:
-            r = cffi_requests.get(
-                sw_url, impersonate="chrome124",
-                headers=_SW_HEADERS,
-                proxies={"https": proxy_url, "http": proxy_url},
-                timeout=8
-            )
-            if r.status_code == 200:
-                sw = _parse_sw_response(r.content)
-                result = _build_sw_result(sw)
-                result["_via"] = f"proxy({proto}:{addr.split(':')[0]})"
-                print(f"  [proxy ✓] {proto}://{addr}", flush=True)
-                return result
-        except Exception:
-            pass
+    # ── Method 1: Direct curl_cffi (home IP, Chrome TLS fingerprint) ─────────
+    try:
+        r = cffi_requests.get(sw_url, impersonate="chrome124",
+                              headers=_SW_HEADERS, timeout=15)
+        if r.status_code == 200:
+            sw = _parse_sw_response(r.content)
+            result = _build_sw_result(sw)
+            result["_via"] = "direct"
+            return result
+        print(f"  [direct] HTTP {r.status_code}", flush=True)
+    except Exception as e:
+        print(f"  [direct fail] {e}", flush=True)
 
     # ── Method 2: Cloudflare Worker relay ────────────────────────────────────
     if CF_WORKER:
@@ -604,18 +594,31 @@ def fetch_similarweb(domain):
         except Exception as e:
             print(f"  [worker fail] {e}", flush=True)
 
-    # ── Method 3: Direct curl_cffi (last resort) ──────────────────────────────
-    try:
-        r = cffi_requests.get(sw_url, impersonate="chrome124",
-                              headers=_SW_HEADERS, timeout=15)
-        if r.status_code == 200:
-            sw = _parse_sw_response(r.content)
-            result = _build_sw_result(sw)
-            result["_via"] = "direct"
-            return result
-        print(f"  [direct] HTTP {r.status_code}", flush=True)
-    except Exception as e:
-        print(f"  [direct fail] {e}", flush=True)
+    # ── Method 3: Proxy rotation (fallback) ──────────────────────────────────
+    if _sw_req_count % ROTATE_EVERY == 1 or _current_proxy is None:
+        _current_proxy = _next_proxy()
+    if _current_proxy:
+        for attempt in range(3):
+            proto, addr = _current_proxy
+            proxy_url = f"{proto}://{addr}"
+            try:
+                r = cffi_requests.get(
+                    sw_url, impersonate="chrome124",
+                    headers=_SW_HEADERS,
+                    proxies={"https": proxy_url, "http": proxy_url},
+                    timeout=12
+                )
+                if r.status_code == 200:
+                    sw = _parse_sw_response(r.content)
+                    result = _build_sw_result(sw)
+                    result["_via"] = f"proxy({proto}:{addr.split(':')[0]})"
+                    print(f"  [proxy ✓] via {proto}://{addr}", flush=True)
+                    return result
+            except Exception:
+                pass
+            _current_proxy = _next_proxy()
+            if not _current_proxy:
+                break
 
     raise RuntimeError("All methods failed — IP rate-limited")
 
