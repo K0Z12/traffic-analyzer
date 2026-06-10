@@ -1,4 +1,4 @@
 {
   "_comment": "Paste your Cloudflare Worker URL below after deploying worker.js. Leave blank to use direct connection.",
-  "cf_worker": "https://green-lake-7601.kaustabh.workers.dev/"
+  "cf_worker": "https://delicate-feather-84f3.kaustabh.workers.dev/"
 }
