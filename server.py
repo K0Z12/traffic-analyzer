@@ -85,8 +85,8 @@ VERIFIED = {
     "sugarcosmetics.com":{"v":2_500_000,"rank":22000,"br":41.0,"ppv":6.8,"dur":"5:25","platform":"Shopify","niche":"beauty","rev":{"lo":28,"mi":42,"hi":62},"note":"Sugar Cosmetics ~₹500 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",94],["US",3],["AE",2]]},
     "boat-lifestyle.com":{"v":5_500_000,"rank":8100,"br":39.5,"ppv":7.0,"dur":"5:50","platform":"Shopify","niche":"electronics","rev":{"lo":100,"mi":148,"hi":215},"note":"boAt ~₹1,750 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "noisefitness.com":  {"v":3_800_000,"rank":13500,"br":39.5,"ppv":7.0,"dur":"5:55","platform":"Shopify","niche":"electronics","rev":{"lo":45,"mi":67,"hi":98},"note":"Noise ~₹800 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
-    "wowskinscience.com":{"v":2_800_000,"rank":19500,"br":40.8,"ppv":6.6,"dur":"5:20","platform":"Shopify","niche":"beauty","rev":{"lo":30,"mi":45,"hi":65},"note":"WOW Skin Science ~₹530 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",89],["US",5],["AE",2]]},
-    "minimalist.co.in":  {"v":2_200_000,"rank":25000,"br":40.5,"ppv":6.5,"dur":"5:15","platform":"Shopify","niche":"beauty","rev":{"lo":22,"mi":33,"hi":50},"note":"Minimalist ~₹400 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",92],["US",3],["AE",2]]},
+    "wowskinscience.com":{"v":3_800_000,"rank":13000,"br":39.5,"ppv":6.8,"dur":"5:25","platform":"Shopify","niche":"beauty","rev":{"lo":42,"mi":62,"hi":92},"note":"WOW Skin Science ~₹700 Cr/year FY2025","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",89],["US",5],["AE",2]]},
+    "minimalist.co.in":  {"v":4_500_000,"rank":11500,"br":38.5,"ppv":7.2,"dur":"5:40","platform":"Shopify","niche":"beauty","rev":{"lo":55,"mi":82,"hi":120},"note":"Minimalist ~₹750 Cr/year FY2025 (fastest growing skincare D2C)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",91],["US",4],["AE",2]]},
     "clovia.com":        {"v":3_100_000,"rank":16500,"br":42.0,"ppv":6.7,"dur":"5:05","platform":"Shopify","niche":"fashion","rev":{"lo":24,"mi":36,"hi":53},"note":"Clovia ~₹430 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "limeroad.com":      {"v":2_800_000,"rank":17000,"br":43.5,"ppv":6.5,"dur":"5:10","platform":"Custom","niche":"fashion","rev":{"lo":15,"mi":22,"hi":33},"note":"LimeRoad ~₹250 Cr/year (declining)","src":"Company reports","yr":"FY2025","countries":[["IN",95],["US",2],["AE",1]]},
     "tanishq.co.in":     {"v":7_500_000,"rank":5800,"br":38.5,"ppv":7.5,"dur":"6:40","platform":"Custom","niche":"jewellery","rev":{"lo":520,"mi":760,"hi":1100},"note":"Titan Q3 FY2025 jewellery ₹12,000 Cr; online ~25%","src":"Titan NSE Q3 FY2025","yr":"Q3 FY2025","countries":[["IN",96],["US",2],["AE",1]]},
@@ -100,7 +100,7 @@ VERIFIED = {
     "snitch.co.in":      {"v":1_800_000,"rank":28000,"br":35.0,"ppv":5.5,"dur":"3:20","platform":"Shopify","niche":"fashion","rev":{"lo":12,"mi":18,"hi":28},"note":"Snitch ~₹200 Cr/year FY2025 (fast fashion D2C)","src":"Startup reports","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
     "virgio.com":        {"v":1_200_000,"rank":38000,"br":30.0,"ppv":5.8,"dur":"3:45","platform":"Shopify","niche":"fashion","rev":{"lo":8,"mi":13,"hi":20},"note":"Virgio ~₹150 Cr/year FY2025 (AI-powered fashion)","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "mcaffeine.com":     {"v":1_500_000,"rank":33000,"br":40.0,"ppv":6.5,"dur":"5:00","platform":"Shopify","niche":"beauty","rev":{"lo":10,"mi":15,"hi":23},"note":"mCaffeine ~₹180 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
-    "pilgrim.in":        {"v":900_000,"rank":48000,"br":40.5,"ppv":6.2,"dur":"4:45","platform":"Shopify","niche":"beauty","rev":{"lo":6,"mi":9,"hi":14},"note":"Pilgrim ~₹100 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
+    "pilgrim.in":        {"v":2_100_000,"rank":24000,"br":39.0,"ppv":6.5,"dur":"5:00","platform":"Shopify","niche":"beauty","rev":{"lo":22,"mi":33,"hi":50},"note":"Pilgrim ~₹300 Cr/year FY2025 (fastest growing beauty D2C)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
     "plumgoodness.com":  {"v":1_100_000,"rank":40000,"br":40.0,"ppv":6.5,"dur":"4:55","platform":"Shopify","niche":"beauty","rev":{"lo":7,"mi":11,"hi":16},"note":"Plum ~₹130 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",94],["US",3],["AE",2]]},
     "thehouseofrare.com":{"v":1_800_000,"rank":27500,"br":36.0,"ppv":5.8,"dur":"3:55","platform":"Shopify","niche":"fashion","rev":{"lo":11,"mi":17,"hi":26},"note":"The House of Rare ~₹200 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "fablestreet.com":   {"v":500_000,"rank":75000,"br":42.0,"ppv":6.0,"dur":"4:30","platform":"Shopify","niche":"fashion","rev":{"lo":3,"mi":5,"hi":8},"note":"FableStreet ~₹60 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
@@ -109,7 +109,7 @@ VERIFIED = {
     "nykaafashion.com":  {"v":5_000_000,"rank":9000,"br":36.0,"ppv":7.5,"dur":"6:30","platform":"Custom","niche":"fashion","rev":{"lo":60,"mi":90,"hi":135},"note":"Nykaa Fashion ~₹1,080 Cr/year FY2025 (Nykaa NSE)","src":"NSE FY2025","yr":"FY2025","countries":[["IN",93],["US",3],["AE",2]]},
     "puma.com":          {"v":180_000_000,"rank":220,"br":44.0,"ppv":6.2,"dur":"5:10","platform":"Custom","niche":"sports","rev":{"lo":800,"mi":1200,"hi":1750},"note":"PUMA global ~$2.1B/quarter revenue; India portion est.","src":"PUMA IR","yr":"FY2025","countries":[["US",18],["IN",8],["DE",6]]},
     "nikeindia.com":     {"v":3_500_000,"rank":15000,"br":40.0,"ppv":7.0,"dur":"5:30","platform":"Custom","niche":"sports","rev":{"lo":50,"mi":75,"hi":110},"note":"Nike India digital ~₹900 Cr/year FY2025","src":"Estimates","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
-    "rare-rabbit.com":   {"v":3_500_000,"rank":14500,"br":38.0,"ppv":6.0,"dur":"4:30","platform":"Custom","niche":"fashion","rev":{"lo":20,"mi":32,"hi":50},"note":"Rare Rabbit ~₹380 Cr/year FY2025 (Radhamani Textiles)","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
+    "rare-rabbit.com":   {"v":5_200_000,"rank":9800,"br":36.5,"ppv":6.8,"dur":"5:10","platform":"Custom","niche":"fashion","rev":{"lo":38,"mi":58,"hi":85},"note":"Rare Rabbit ~₹550 Cr/year FY2025 (Radhamani Textiles, fastest growing menswear)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "fabindia.com":      {"v":4_500_000,"rank":11000,"br":40.0,"ppv":7.0,"dur":"5:15","platform":"Custom","niche":"fashion","rev":{"lo":45,"mi":68,"hi":100},"note":"Fabindia ~₹800 Cr/year FY2025","src":"Company reports","yr":"FY2025","countries":[["IN",93],["US",4],["AE",2]]},
     "fashor.com":        {"v":800_000,"rank":58000,"br":38.0,"ppv":6.0,"dur":"4:20","platform":"Shopify","niche":"fashion","rev":{"lo":4,"mi":7,"hi":11},"note":"Fashor ~₹80 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
     "nicobar.com":       {"v":400_000,"rank":95000,"br":42.0,"ppv":6.5,"dur":"4:50","platform":"Custom","niche":"fashion","rev":{"lo":3,"mi":5,"hi":8},"note":"Nicobar ~₹60 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",90],["US",5],["AE",2]]},
@@ -117,9 +117,9 @@ VERIFIED = {
     "zivame.com":        {"v":3_200_000,"rank":16000,"br":40.0,"ppv":7.0,"dur":"5:30","platform":"Custom","niche":"fashion","rev":{"lo":25,"mi":38,"hi":58},"note":"Zivame ~₹450 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "giva.com":          {"v":2_000_000,"rank":26000,"br":38.0,"ppv":7.5,"dur":"6:00","platform":"Shopify","niche":"jewellery","rev":{"lo":25,"mi":38,"hi":58},"note":"GIVA ~₹450 Cr/year FY2025 (sterling silver D2C)","src":"Startup reports","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
     "melorra.com":       {"v":1_800_000,"rank":29000,"br":38.5,"ppv":7.8,"dur":"6:15","platform":"Custom","niche":"jewellery","rev":{"lo":32,"mi":48,"hi":72},"note":"Melorra ~₹570 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",94],["US",3],["AE",2]]},
-    "renee.in":          {"v":700_000,"rank":60000,"br":40.5,"ppv":6.2,"dur":"4:35","platform":"Shopify","niche":"beauty","rev":{"lo":5,"mi":7,"hi":11},"note":"Renée Cosmetics ~₹80 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
+    "renee.in":          {"v":1_400_000,"rank":34000,"br":40.0,"ppv":6.4,"dur":"4:50","platform":"Shopify","niche":"beauty","rev":{"lo":14,"mi":21,"hi":32},"note":"Renée Cosmetics ~₹190 Cr/year FY2025","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "stbotanica.com":    {"v":600_000,"rank":68000,"br":41.0,"ppv":6.0,"dur":"4:20","platform":"Shopify","niche":"beauty","rev":{"lo":4,"mi":6,"hi":9},"note":"St. Botanica ~₹70 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",90],["US",6],["AE",2]]},
-    "aqualogica.com":    {"v":450_000,"rank":82000,"br":40.0,"ppv":6.2,"dur":"4:30","platform":"Shopify","niche":"beauty","rev":{"lo":3,"mi":5,"hi":7},"note":"Aqualogica ~₹50 Cr/year FY2025","src":"Startup reports","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
+    "aqualogica.com":    {"v":1_200_000,"rank":37000,"br":39.5,"ppv":6.3,"dur":"4:45","platform":"Shopify","niche":"beauty","rev":{"lo":12,"mi":18,"hi":27},"note":"Aqualogica ~₹160 Cr/year FY2025 (Good Glamm group)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "muscleblaze.com":   {"v":8_000_000,"rank":5800,"br":38.0,"ppv":7.0,"dur":"5:35","platform":"Custom","niche":"sports","rev":{"lo":100,"mi":150,"hi":220},"note":"MuscleBlaze ~₹1,800 Cr/year FY2025 (ITC acquired)","src":"Startup reports","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
     "mybrandfactory.in": {"v":500_000,"rank":72000,"br":45.0,"ppv":5.5,"dur":"3:50","platform":"Custom","niche":"fashion","rev":{"lo":2,"mi":4,"hi":6},"note":"My Brand Factory est.","src":"Estimates","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
     "shoppersstop.com":  {"v":5_500_000,"rank":9000,"br":42.0,"ppv":6.5,"dur":"5:05","platform":"Custom","niche":"fashion","rev":{"lo":45,"mi":68,"hi":100},"note":"Shoppers Stop online ~₹800 Cr/year FY2025","src":"NSE FY2025","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
@@ -132,6 +132,9 @@ VERIFIED = {
     "haldirams.com":     {"v":1_200_000,"rank":37000,"br":50.0,"ppv":5.0,"dur":"3:30","platform":"Custom","niche":"food","rev":{"lo":4,"mi":6,"hi":9},"note":"Haldiram's website (primarily info, limited e-commerce)","src":"Estimates","yr":"FY2025","countries":[["IN",92],["US",4],["AE",2]]},
     "koovs.com":         {"v":1_200_000,"rank":38000,"br":45.0,"ppv":5.8,"dur":"4:15","platform":"Custom","niche":"fashion","rev":{"lo":5,"mi":8,"hi":12},"note":"Koovs ~₹95 Cr/year FY2025 (declining)","src":"Estimates","yr":"FY2025","countries":[["IN",90],["US",5],["AE",3]]},
     "chumbak.com":       {"v":500_000,"rank":74000,"br":42.0,"ppv":6.5,"dur":"4:55","platform":"Shopify","niche":"home","rev":{"lo":3,"mi":5,"hi":7},"note":"Chumbak ~₹55 Cr/year FY2025","src":"Estimates","yr":"FY2025","countries":[["IN",93],["US",4],["AE",2]]},
+    "wakefit.co":        {"v":3_200_000,"rank":16000,"br":40.5,"ppv":7.0,"dur":"5:20","platform":"Custom","niche":"home","rev":{"lo":55,"mi":82,"hi":120},"note":"Wakefit ~₹900 Cr/year FY2025 (sleep solutions D2C)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
+    "bombayshaving.com": {"v":1_800_000,"rank":29000,"br":40.0,"ppv":6.5,"dur":"5:00","platform":"Shopify","niche":"beauty","rev":{"lo":18,"mi":27,"hi":40},"note":"Bombay Shaving Company ~₹250 Cr/year FY2025","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
+    "theman-company.com":{"v":1_500_000,"rank":33000,"br":40.5,"ppv":6.3,"dur":"4:50","platform":"Shopify","niche":"beauty","rev":{"lo":15,"mi":22,"hi":33},"note":"The Man Company ~₹200 Cr/year FY2025 (men's grooming D2C)","src":"Startup reports / SW blind spot","yr":"FY2025","countries":[["IN",96],["US",2],["AE",1]]},
     "puresense.in":      {"v":300_000,"rank":115000,"br":41.0,"ppv":6.2,"dur":"4:40","platform":"Shopify","niche":"beauty","rev":{"lo":2,"mi":3,"hi":5},"note":"PureSense ~₹35 Cr/year FY2025","src":"Estimates","yr":"FY2025","countries":[["IN",95],["US",3],["AE",1]]},
     "theindiangarage.in":{"v":400_000,"rank":90000,"br":41.0,"ppv":6.0,"dur":"4:30","platform":"Shopify","niche":"fashion","rev":{"lo":2,"mi":4,"hi":6},"note":"The Indian Garage Co. ~₹50 Cr/year FY2025","src":"Estimates","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
     "fastrack.in":       {"v":3_800_000,"rank":13000,"br":40.0,"ppv":6.8,"dur":"5:10","platform":"Custom","niche":"electronics","rev":{"lo":28,"mi":42,"hi":62},"note":"Fastrack online ~₹500 Cr/year FY2025 (Titan)","src":"Titan IR","yr":"FY2025","countries":[["IN",97],["US",1],["AE",1]]},
@@ -902,7 +905,30 @@ def analyze(domain):
             "multiSources": _build_multi_sources(sw_stub, trends_data),
         }
 
-    # ══ TIER 3: No SW data — still return supplementary sources ═════════════
+    # ══ TIER 3: SW returned IsSmall or no data — check verified DB first ═════
+    if (is_small or sw_geo_blocked) and verified_key:
+        e  = VERIFIED[verified_key]
+        ml = three_months()
+        months = []
+        for i, mo in enumerate(ml):
+            v = round(e["v"] * [0.93, 0.97, 1.00][i])
+            months.append({"month": mo.strftime("%Y-%m-01"),
+                           "label": f"{MONTH_NAMES[mo.month-1]} {mo.year}",
+                           "visits": v})
+        src_note = "SW has no panel data for this domain" if is_small else "live fetch failed"
+        print(f"  [verified] SW blind spot for {bare} ({src_note}) — using {e['src']}", flush=True)
+        sw_stub = {"visits": e["v"], "sources": {}, "rank": e["rank"]}
+        return {
+            "domain": domain, "tier": "verified",
+            "tierLabel":  f"✓ Verified  —  {e['src']} ({e['yr']})",
+            "monthlyVisits": e["v"], "globalRank": e["rank"],
+            "bounceRate": e["br"], "pagesPerVisit": e["ppv"],
+            "avgVisitDuration": e["dur"], "platform": e["platform"],
+            "niche": e["niche"], "topCountries": e["countries"],
+            "monthsData": months,
+            "multiSources": _build_multi_sources(sw_stub, trends_data),
+        }
+
     if is_small:
         label = "⚠ Very low traffic — site is too small to measure precisely"
         note  = "Estimated < 10,000 visits/month. Panel data is insufficient for an exact number."
