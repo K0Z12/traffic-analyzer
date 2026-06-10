@@ -240,7 +240,7 @@ _SW_HEADERS = {
 # Completely bypasses IP-based rate limiting.
 import threading, queue, socket as _socket
 
-ROTATE_EVERY   = 6        # rotate proxy after this many SW requests
+ROTATE_EVERY   = 3        # rotate proxy after this many SW requests (aggressive for bulk use)
 _proxy_pool    = queue.Queue()
 _proxy_lock    = threading.Lock()
 _sw_req_count  = 0
@@ -248,14 +248,49 @@ _current_proxy = None
 _pool_ready    = threading.Event()
 
 PROXY_SOURCES = [
-    # SOCKS5
+    # ── SOCKS5 sources ────────────────────────────────────────────────────────
     ("socks5", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=5000&country=all&anonymity=elite"),
     ("socks5", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks5&timeout=5000&country=all"),
     ("socks5", "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt"),
     ("socks5", "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"),
-    # HTTP/HTTPS proxies (broader pool)
+    ("socks5", "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies_anonymous/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt"),
+    ("socks5", "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"),
+    ("socks5", "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/socks5.txt"),
+    ("socks5", "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt"),
+    ("socks5", "https://api.openproxylist.xyz/socks5.txt"),
+    # ── SOCKS4 sources ────────────────────────────────────────────────────────
+    ("socks4", "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=socks4&timeout=5000&country=all"),
+    ("socks4", "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/SOCKS4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/socks4.txt"),
+    ("socks4", "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks4.txt"),
+    ("socks4", "https://api.openproxylist.xyz/socks4.txt"),
+    # ── HTTP/HTTPS sources ────────────────────────────────────────────────────
     ("http",   "https://api.proxyscrape.com/v3/free-proxy-list/get?request=displayproxies&protocol=http&timeout=5000&country=all&anonymity=elite"),
     ("http",   "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt"),
+    ("http",   "https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/B4RC0DE-TM/proxy-list/main/HTTP.txt"),
+    ("http",   "https://raw.githubusercontent.com/saschazesiger/Free-Proxies/master/proxies/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/prxchk/proxy-list/main/http.txt"),
+    ("http",   "https://api.openproxylist.xyz/http.txt"),
+    ("http",   "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"),
+    ("http",   "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt"),
 ]
 
 _SW_TEST_URL = "https://data.similarweb.com/api/v1/data?domain=google.com"
@@ -303,9 +338,16 @@ def _load_proxies():
             print(f"  [proxy] fetch error ({src[:40]}): {e}", flush=True)
 
     random.shuffle(all_proxies)
+    # Deduplicate
+    seen = set(); deduped = []
+    for item in all_proxies:
+        if item[1] not in seen:
+            seen.add(item[1]); deduped.append(item)
+    all_proxies = deduped
     total = len(all_proxies)
-    # Test up to 400 proxies — real SW hit, more thorough
-    test_batch = all_proxies[:400]
+
+    # Test up to 2000 proxies — real SW hit
+    test_batch = all_proxies[:2000]
     print(f"  [proxy] Real-testing {len(test_batch)}/{total} proxies against SimilarWeb…", flush=True)
 
     results = {}
@@ -315,14 +357,17 @@ def _load_proxies():
 
     threads = [threading.Thread(target=_t, args=(item,), daemon=True) for item in test_batch]
     for t in threads: t.start()
-    for t in threads: t.join(timeout=20)
+    for t in threads: t.join(timeout=35)
 
     working_s5 = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "socks5"]
+    working_s4 = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "socks4"]
     working_h  = [(proto, p) for (proto, p) in test_batch if results.get(p) and proto == "http"]
-    # Prefer socks5, then http
-    working = working_s5 + working_h
+    # Prefer socks5 > socks4 > http
+    working = working_s5 + working_s4 + working_h
     random.shuffle(working)
-    print(f"  [proxy] {len(working)} SW-verified proxies ({len(working_s5)} socks5, {len(working_h)} http)", flush=True)
+    print(f"  [proxy] {len(working)} SW-verified proxies "
+          f"({len(working_s5)} socks5, {len(working_s4)} socks4, {len(working_h)} http) "
+          f"from {total} candidates", flush=True)
 
     new_q = queue.Queue()
     for item in working:
@@ -344,17 +389,30 @@ def _ensure_proxies():
         t.start()
 
 def _next_proxy():
-    """Get next (proto, host:port) tuple from pool, reload if empty."""
+    """Get next (proto, host:port) tuple from pool; auto-reload when running low."""
     global _current_proxy
-    _pool_ready.wait(timeout=20)   # wait up to 20s for initial SW-verified load
+    _pool_ready.wait(timeout=25)   # wait up to 25s for initial SW-verified load
     try:
         _current_proxy = _proxy_pool.get_nowait()
+        remaining = _proxy_pool.qsize()
+        # Proactively reload when pool drops below 10 proxies
+        if remaining < 10 and _pool_ready.is_set():
+            print(f"  [proxy] Pool low ({remaining} left) — reloading in background…", flush=True)
+            _pool_ready.clear()
+            threading.Thread(target=_load_proxies, daemon=True).start()
         return _current_proxy
     except queue.Empty:
-        # Pool exhausted — reload in background and use direct for now
-        _pool_ready.clear()
-        threading.Thread(target=_load_proxies, daemon=True).start()
-        return None
+        # Pool exhausted — reload and wait briefly
+        if _pool_ready.is_set():
+            print(f"  [proxy] Pool empty — reloading…", flush=True)
+            _pool_ready.clear()
+            threading.Thread(target=_load_proxies, daemon=True).start()
+        _pool_ready.wait(timeout=30)
+        try:
+            _current_proxy = _proxy_pool.get_nowait()
+            return _current_proxy
+        except:
+            return None
 
 # Start loading proxies immediately on startup
 threading.Thread(target=_load_proxies, daemon=True).start()
